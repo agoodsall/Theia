@@ -15,10 +15,10 @@ plt.rcParams["figure.autolayout"] = True
 
 
 class FindSharps():
-	def __init__(self, Predict=True, Verbose=True, Static=True, Dynamic=False):
+	def __init__(self, Predict=True, Verbose=True, Dynamic=False, Spot=True):
 
 		IntensityLimit = 0.89
-
+		self.Spot = Spot
 		data = self.Instantiate()
 		cropdata = self.CropNans(data)
 		centres_x, centres_y = self.FindPoints(cropdata, IntensityLimit)
@@ -29,7 +29,7 @@ class FindSharps():
 			phis=np.rad2deg(phis)
 		if Verbose==True:
 			self.PrintLog(mus, phis)
-		if Static==True:
+		if Dynamic==False:
 			self.PlotStatic(centres_x, centres_y,mus,cropdata)
 		if Dynamic==True:
 			self.PlotDynamic(cropdata)
@@ -37,7 +37,7 @@ class FindSharps():
 
 	def Instantiate(self,match_SDO=True, obs_datime = "$"):
 		#===Instantiate
-		c = drms.Client(email = "acgoodsall@gmail.com",verbose=False)
+		c = drms.Client(email = "goodsalljsocexport@gmail.com",verbose=False)
 		time_obs = obs_datime
 		sm = c.query('hmi.Ic_noLimbDark_720s_nrt['+time_obs+']', seg='Continuum') #this part isn't case sensitive
 		self.keys = c.query('hmi.Ic_noLimbDark_720s_nrt['+time_obs+']', key=('DATE__OBS','CROTA2')) #CROTA2
@@ -87,7 +87,7 @@ class FindSharps():
 			phi = 2*np.pi - (theta+np.pi/2)
 		if x_dash<=0 and y_dash>=0:
 			phi = 2*np.pi - (np.pi/2 - theta)
-		phi = 2*np.pi - phi
+		# phi = 2*np.pi - phi
 		#returns phi calculated from solar North anticlockwise, as pyobs also measures anticlockwise
 		return mu, phi
 
@@ -103,13 +103,13 @@ class FindSharps():
 		x = np.arcsin(np.sqrt(term2))+2*np.pi
 		return x
 
-	def GetAngVel_SnodUlrich(self,latitude,Magnetic=False):
-		if Magnetic==False:
+	def GetAngVel_SnodUlrich(self,latitude):
+		if self.Spot==False:
 			Acoeff = 14.71
 			Bcoeff = -2.39
 			Ccoeff = -1.78
-		if Magnetic==True:
-			#Below are the 1983 snodgrass papers' MAGNETIC features' doppler rotation rate coefficients:
+		if self.Spot==True:
+			#Below are the 1990 snodgrass papers' MAGNETIC rotation rate coefficients:
 			Acoeff = 14.366
 			Bcoeff = -2.297
 			Ccoeff = -1.624
@@ -123,7 +123,7 @@ class FindSharps():
 		ot = Time(str(date_obs[0][0:-1]), format='fits')
 		dt_days = (self.nt.jd-ot.jd) #in days
 		# dt_days = 1
-		print("time offset", dt_days)
+		# print("time offset", dt_days)
 		lat = self.R_sol*np.sin(np.arccos(mu_in))*np.cos(phi_in) # the physical distances, not the angles
 		lon = self.R_sol*np.sin(np.arccos(mu_in))*np.sin(phi_in)
 		ang_vel = self.GetAngVel_SnodUlrich(lat)
@@ -270,4 +270,4 @@ class FindSharps():
 			print("key, mu, phi ", i, mu_plots[i], phi_plots[i])
 		return
 	
-obj = FindSharps(Predict=True, Verbose=True,Dynamic=True)
+obj = FindSharps(Predict=True, Verbose=True,Dynamic=False)
