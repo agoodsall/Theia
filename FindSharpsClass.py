@@ -1,5 +1,8 @@
 #code to produce an image giving the mu-psi coordinates for sharps using the near-real-time data from SDO
 
+#notes
+#cannot be used while using a vpn
+
 #===imports
 import drms
 import matplotlib.pyplot as plt
@@ -19,6 +22,12 @@ class FindSharps():
 
 		IntensityLimit = 0.89
 		self.Spot = Spot
+		# if Predict==False:
+		# 	Time_0 = "2024.0"+str(values[0])+"."+str(values[1])+"0_09:00:00_TAI"
+		# if Predict==True:
+		# 	Time_0 = "2024.0"+str(values[0])+"."+str(values[1])+"0_07:00:00_TAI"
+		# 	self.nt = Time("2024-0"+str(values[0])+"-"+str(values[1])+"0T07:00:00.000", format='fits') +1/12 #should be taken as units of days, so + 2 hours.
+		# Time_0 = "$"
 		data = self.Instantiate()
 		cropdata = self.CropNans(data)
 		centres_x, centres_y = self.FindPoints(cropdata, IntensityLimit)
@@ -39,6 +48,7 @@ class FindSharps():
 		#===Instantiate
 		c = drms.Client(email = "goodsalljsocexport@gmail.com",verbose=False)
 		time_obs = obs_datime
+		print(time_obs)
 		sm = c.query('hmi.Ic_noLimbDark_720s_nrt['+time_obs+']', seg='Continuum') #this part isn't case sensitive
 		self.keys = c.query('hmi.Ic_noLimbDark_720s_nrt['+time_obs+']', key=('DATE__OBS','CROTA2')) #CROTA2
 		url_m = 'http://jsoc.stanford.edu' + sm.Continuum[0] #this part IS case sensitive
@@ -52,6 +62,8 @@ class FindSharps():
 		self.R_sol = 6.597e8
 		self.const_c = 3e8
 		self.nt = Time.now()
+		# self.nt = Time("2024-03-10T07:00:00.000", format='fits') +1/12 #should be taken as units of days, so + 2 hours.
+		# print(self.nt)
 		return image_data
 
 	def findcutoffs(self,arr_in):
@@ -123,7 +135,7 @@ class FindSharps():
 		ot = Time(str(date_obs[0][0:-1]), format='fits')
 		dt_days = (self.nt.jd-ot.jd) #in days
 		# dt_days = 1
-		# print("time offset", dt_days)
+		print("time offset", dt_days)
 		lat = self.R_sol*np.sin(np.arccos(mu_in))*np.cos(phi_in) # the physical distances, not the angles
 		lon = self.R_sol*np.sin(np.arccos(mu_in))*np.sin(phi_in)
 		ang_vel = self.GetAngVel_SnodUlrich(lat)
@@ -145,7 +157,7 @@ class FindSharps():
 			phi_pred = 2*np.pi - (theta_pred+np.pi/2)
 		if lon_pred<=0 and lat_pred>=0:
 			phi_pred = 2*np.pi - (np.pi/2 - theta_pred)
-		print(phi_pred, lon_pred, lat_pred)
+		# print(phi_pred, lon_pred, lat_pred)
 		# phi_pred = phi_pred
 		return mu_pred, phi_pred
 
@@ -188,7 +200,7 @@ class FindSharps():
 
 		for e, contour in enumerate(contours):
 			# if statement removes very small isolated points and the sun-is-a-spot issue
-			if len(contour)>50 and len(contour)<2000:
+			if len(contour)>50 and len(contour)<2000: #limits were 50 and 2000 pixels
 
 				low  = int(min(contour[:,1]))
 				upp  = int(max(contour[:,1]))
@@ -235,6 +247,10 @@ class FindSharps():
 				p=np.rad2deg(phi_pred)
 				mu_preds.append(m)
 				phi_preds.append(p)
+			if str(mu_cons[i])=="nan":
+				mu_pred, phi_pred = self.GetPredictiveOffset(self.keys, mu_cons[i], phi_cons[i])
+				mu_preds.append("nan")
+				phi_preds.append("nan")
 		return mu_preds, phi_preds
 
 	def onclick(self,event,new_data):
@@ -250,7 +266,7 @@ class FindSharps():
 		for i in np.arange(len(x_plots)):
 			if str(mu_plots[i])!="nan":
 				ax.annotate("%i"%(i), (x_plots[i], y_plots[i]))
-				ax.scatter(x_plots[i], y_plots[i], color="white", s=5)
+				ax.scatter(x_plots, y_plots, color="white", s=5)
 			else:
 				ax.annotate("off disk, mu undefined", (x_plots[i], y_plots[i]))
 		plt.show()
@@ -269,5 +285,18 @@ class FindSharps():
 		for i in np.arange(len(mu_plots)):
 			print("key, mu, phi ", i, mu_plots[i], phi_plots[i])
 		return
+
+
+obj = FindSharps()
+
+
+# list = [(4,2)]
+# for i in list:
+# 	boole = True
+# 	print("bool:", boole)
+# 	print(i)
+# 	objTheia = FindSharps(i,Predict=boole, Verbose=True,Dynamic=False) #predicted
+# 	boole = False
+# 	print("bool:", boole)
+# 	objTheia = FindSharps(i,Predict=boole, Verbose=True,Dynamic=False) #true one
 	
-obj = FindSharps(Predict=True, Verbose=True,Dynamic=False)
